@@ -1,0 +1,14 @@
+name: jit_context
+title: JIT Context OS
+description: Epistemic context runtime and 3-tier memory cascade (L0/L1/L2) with deterministic prompt-caching optimization for Agent Zero.
+version: 0.2.6
+author: Wojciech Wiesner
+tags:
+  - context
+  - memory
+  - caching
+  - epistemic
+settings_sections:
+  - agent
+per_project_config: true
+per_agent_config: true
