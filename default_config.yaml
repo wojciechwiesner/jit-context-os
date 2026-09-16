@@ -1,0 +1,9 @@
+mode: "active"
+max_capsule_tokens: 1500
+l0_enabled: true
+l1_enabled: true
+l2_enabled: true
+circuit_breaker_timeout_ms: 600
+recent_turn_fence: 4
+telemetry_enabled: true
+prompt_cache_optimization: true
