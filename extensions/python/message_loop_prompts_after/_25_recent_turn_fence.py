@@ -1,57 +1,55 @@
 """
-RecentTurnFence Extension for Agent Zero Message Loop.
+RecentTurnFence Extension for Agent Zero Message Loop (v0.3).
+
 Safely prunes multi-turn history on strict USER TURN boundaries,
-preventing orphaned tool calls while archiving pruned context into SQLite.
+preventing orphaned tool calls while archiving pruned context into the
+JIT L0 SQLite WAL store (path derived from the runtime, never hardcoded).
+
+I6-hardened: any internal failure returns silently; the loop is never blocked.
 """
 
 import os
-import json
-import time
-import sqlite3
+import sys
+import importlib.util
+
 from helpers.extension import Extension
 from helpers import plugins
 from agent import LoopData
 
-DB_PATH = "/a0/usr/plugins/jit_context/data/jit_context.db"
+_RUNTIME_MODULE = "usr.plugins.jit_context.helpers.runtime"
 
 
-def _ensure_db():
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS pruned_history (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                session_id TEXT,
-                message_index INTEGER,
-                ai INTEGER,
-                content TEXT,
-                created_at REAL
-            )
-        """
-        )
-        conn.commit()
-
-
-def _archive_pruned_messages(session_id: str, messages: list):
+def _load_runtime():
+    """Resolve the plugin runtime regardless of install location."""
     try:
-        _ensure_db()
-        now = time.time()
-        rows = []
-        for idx, m in enumerate(messages):
-            ai = 1 if m.get("ai") else 0
-            raw_content = m.get("content", "")
-            content_str = json.dumps(raw_content) if isinstance(raw_content, (dict, list)) else str(raw_content)
-            rows.append((session_id, idx, ai, content_str, now))
-        
-        if rows:
-            with sqlite3.connect(DB_PATH) as conn:
-                conn.executemany(
-                    "INSERT INTO pruned_history (session_id, message_index, ai, content, created_at) VALUES (?, ?, ?, ?, ?)",
-                    rows,
-                )
-                conn.commit()
-    except Exception as e:
+        from usr.plugins.jit_context.helpers.runtime import get_runtime
+        return get_runtime
+    except Exception:
         pass
+    mod = sys.modules.get(_RUNTIME_MODULE)
+    if mod is not None and hasattr(mod, "get_runtime"):
+        return mod.get_runtime
+    here = os.path.abspath(__file__)
+    plugin_root = os.path.abspath(os.path.join(os.path.dirname(here), "..", "..", ".."))
+    for base in (
+        os.environ.get("JIT_CONTEXT_PLUGIN_DIR") or "",
+        "/a0/usr/plugins/jit_context",
+        plugin_root,
+    ):
+        if not base:
+            continue
+        path = os.path.join(base, "helpers", "runtime.py")
+        if os.path.isfile(path):
+            spec = importlib.util.spec_from_file_location(_RUNTIME_MODULE, path)
+            mod = importlib.util.module_from_spec(spec)
+            sys.modules[_RUNTIME_MODULE] = mod
+            try:
+                spec.loader.exec_module(mod)
+                return mod.get_runtime
+            except Exception:
+                sys.modules.pop(_RUNTIME_MODULE, None)
+                return None
+    return None
 
 
 def _is_user_turn(msg: dict) -> bool:
@@ -71,47 +69,51 @@ class RecentTurnFenceExtension(Extension):
         loop_data: LoopData = LoopData(),
         **kwargs,
     ):
-        if not self.agent:
-            return
+        try:
+            if not self.agent:
+                return
 
-        config = plugins.get_plugin_config("jit_context", agent=self.agent) or {}
-        if config.get("mode", "active") == "disabled":
-            return
+            config = plugins.get_plugin_config("jit_context", agent=self.agent) or {}
+            if config.get("mode", "active") == "disabled":
+                return
 
-        # Number of recent user-interaction turns to preserve in hot working memory
-        fence_turns = int(config.get("recent_turn_fence", 4))
-        if fence_turns <= 0:
-            return
+            fence_turns = int(config.get("recent_turn_fence", 4))
+            if fence_turns <= 0:
+                return
 
-        history_msgs = getattr(loop_data, "history_output", [])
-        if not history_msgs or not isinstance(history_msgs, list):
-            return
+            get_runtime = _load_runtime()
+            if get_runtime is None:
+                return
+            runtime = get_runtime()
 
-        # Find indices of all true user turns
-        user_indices = [i for i, m in enumerate(history_msgs) if _is_user_turn(m)]
+            history_msgs = getattr(loop_data, "history_output", None)
+            if not history_msgs or not isinstance(history_msgs, list):
+                return
 
-        # If total user turns do not exceed threshold, keep history untouched
-        if len(user_indices) <= fence_turns:
-            return
+            user_indices = [i for i, m in enumerate(history_msgs) if _is_user_turn(m)]
+            if len(user_indices) <= fence_turns:
+                return
 
-        # Boundary: start of the oldest kept user turn
-        boundary_idx = user_indices[-fence_turns]
-        if boundary_idx <= 1:
-            return
+            boundary_idx = user_indices[-fence_turns]
+            if boundary_idx <= 1:
+                return
 
-        initial_msg = history_msgs[0]
-        pruned_slice = history_msgs[1:boundary_idx]
-        recent_msgs = history_msgs[boundary_idx:]
+            initial_msg = history_msgs[0]
+            pruned_slice = history_msgs[1:boundary_idx]
+            recent_msgs = history_msgs[boundary_idx:]
 
-        # Genuinely archive pruned messages to SQLite database
-        session_id = getattr(self.agent.context, "id", "default_session")
-        _archive_pruned_messages(session_id, pruned_slice)
+            session_id = getattr(self.agent.context, "id", "default_session")
+            tokens_avoided = runtime.archive_pruned_messages(session_id, pruned_slice)
 
-        # Preserve valid pairing: root user message + recent turns starting cleanly on a user turn
-        loop_data.history_output = [initial_msg] + recent_msgs
+            # Preserve valid pairing: root user message + recent turns on clean boundary
+            loop_data.history_output = [initial_msg] + recent_msgs
 
-        # Inject metadata into extras_temporary so LLM is aware without hijacking user dialogue
-        if hasattr(loop_data, "extras_temporary") and isinstance(loop_data.extras_temporary, dict):
-            loop_data.extras_temporary["jit_context_fence"] = (
-                f"{len(pruned_slice)} historical messages pruned to L0 SQLite WAL. Hot-memory: {len(recent_msgs)} messages."
-            )
+            if hasattr(loop_data, "extras_temporary") and isinstance(
+                loop_data.extras_temporary, dict
+            ):
+                loop_data.extras_temporary["jit_context_fence"] = (
+                    f"{len(pruned_slice)} historical messages (~{tokens_avoided} tok) "
+                    f"pruned to L0 SQLite WAL. Hot-memory: {len(recent_msgs)} messages."
+                )
+        except Exception:
+            return  # I6: never block the loop

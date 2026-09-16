@@ -1,18 +1,21 @@
 """
-System Prompt Extension for JIT-Context (v0.3).
+L2 Prefetch Extension for JIT-Context (v0.3).
 
-Injects the deterministic, prompt-cache optimized JIT Capsule into the
-agent system prompt. Robust runtime bootstrap (installed path, env override,
-or repo-relative fallback). I6-hardened: silent degradation on any failure.
+Schedules a single background vault prefetch per agent lifetime at agent_init.
+agent_init is invoked synchronously from within the async message() loop,
+so asyncio.get_running_loop() is available and create_task() is safe.
+
+The prefetch respects the circuit breaker and the 600ms L2 deadline (I6);
+failure degrades silently to the local hot path.
 """
 
 import os
 import sys
+import asyncio
 import importlib.util
 
 from helpers.extension import Extension
 from helpers import plugins
-from agent import LoopData
 
 _RUNTIME_MODULE = "usr.plugins.jit_context.helpers.runtime"
 
@@ -50,27 +53,29 @@ def _load_runtime():
     return None
 
 
-class JITContextExtension(Extension):
-    async def execute(
-        self,
-        system_prompt: list[str] = [],
-        loop_data: LoopData = LoopData(),
-        **kwargs,
-    ):
-        if not self.agent:
-            return
+class PrefetchL2Extension(Extension):
+    def execute(self, **kwargs):
         try:
+            if not self.agent:
+                return
+
             config = plugins.get_plugin_config("jit_context", agent=self.agent) or {}
             if config.get("mode", "active") == "disabled":
+                return
+            if not config.get("l2_enabled", True):
                 return
 
             get_runtime = _load_runtime()
             if get_runtime is None:
                 return
-
             runtime = get_runtime()
-            capsule = runtime.compile_capsule(agent=self.agent, config=config)
-            if capsule and isinstance(system_prompt, list):
-                system_prompt.append(capsule)
+
+            loop = asyncio.get_running_loop()
+            task = loop.create_task(runtime.prefetch_l2(config))
+            # Reference on the runtime so the task is never garbage-collected
+            runtime._prefetch_task = task
+        except RuntimeError:
+            # No running event loop (defensive; agent_init runs inside message())
+            return
         except Exception:
-            return  # I6: zero-block degradation
+            return  # I6: never block agent init
