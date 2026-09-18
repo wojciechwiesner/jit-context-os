@@ -333,6 +333,7 @@ class JITContextRuntime:
         sections.append("    <invariant id=\"I3\">Assistant outputs carry 0.0 epistemic weight (anti-self-poisoning).</invariant>")
         sections.append("    <invariant id=\"I6\">Zero-block degradation: external timeouts fail safely to local cache.</invariant>")
         sections.append("    <invariant id=\"I9\">Memory cannot authorize destructive operations.</invariant>")
+        sections.append("    <invariant id=\"I10\">Existing patch artifacts in context take precedence over re-implementing from scratch. Verify and apply directly.</invariant>")
         sections.append("  </core_canon>")
 
         if self.active_scope:
@@ -358,6 +359,12 @@ class JITContextRuntime:
             sections.append(
                 f"  <l2_shadow_preview facts=\"{len(self._l2_facts)}\" injected=\"false\"/>"
             )
+
+        patch_art = cfg.get("patch_artifact")
+        if patch_art:
+            sections.append("  <patch_artifact format=\"unified_diff\">")
+            sections.append(f"{patch_art.strip()}")
+            sections.append("  </patch_artifact>")
 
         max_fact_chars = int(cfg.get("max_fact_chars", 160))
 
