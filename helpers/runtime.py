@@ -229,27 +229,36 @@ class JITContextRuntime:
     def _read_vault_facts_sync(self, limit: int = 8) -> List[Dict[str, Any]]:
         facts: List[Dict[str, Any]] = []
         ctx = os.path.join(VAULT_DIR, "context")
-        candidates = []
+        candidates: List[Dict[str, Any]] = []
+        pool = 40  # candidate pool for optional reranker (Slot 2)
         if os.path.isdir(ctx):
             for name in ("global.md", "user.md"):
                 p = os.path.join(ctx, name)
-                if os.path.isfile(p):
-                    candidates.append(p)
-        for path in candidates:
+                if not os.path.isfile(p):
+                    continue
+                try:
+                    with open(p, "r", encoding="utf-8", errors="ignore") as fh:
+                        text = fh.read(20000)
+                except OSError:
+                    continue
+                base = os.path.basename(p)
+                for line in text.splitlines():
+                    line = line.strip().lstrip("#- ").strip()
+                    if 8 <= len(line) <= 160:
+                        candidates.append(
+                            {"key": f"vault:{base}:{len(candidates)}", "value": line[:160]}
+                        )
+                        if len(candidates) >= pool:
+                            break
+        reranker = getattr(self, "fact_reranker", None)
+        if callable(reranker) and candidates:
             try:
-                with open(path, "r", encoding="utf-8", errors="ignore") as fh:
-                    text = fh.read(20000)
-            except OSError:
-                continue
-            base = os.path.basename(path)
-            for line in text.splitlines():
-                line = line.strip().lstrip("#- ").strip()
-                if 8 <= len(line) <= 160:
-                    facts.append(
-                        {"key": f"vault:{base}:{len(facts)}", "value": line[:160]}
-                    )
-                    if len(facts) >= limit:
-                        return facts
+                ranked = list(reranker(candidates))
+                if ranked:
+                    candidates = ranked
+            except Exception:
+                pass  # I6: file-order fallback
+        facts = candidates[:limit]
         return facts
 
     # --------------------------------------------------- shadow acceptance gate
