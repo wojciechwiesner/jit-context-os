@@ -5,12 +5,14 @@ Formal invariants protecting autonomous agent context from hallucination amplifi
 confidence laundering, prompt injection, and catastrophic memory corruption.
 """
 
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 import re
+
 
 class EpistemicInvariantError(Exception):
     """Raised when an epistemic invariant is violated."""
     pass
+
 
 class InvariantChecker:
     @staticmethod
@@ -38,7 +40,7 @@ class InvariantChecker:
     @staticmethod
     def tag_external_content(content: str, source_type: str = "web") -> Dict[str, Any]:
         """
-        I10 (Quoted Content Quarantine):
+        I8 (Quoted Content Quarantine):
         Untrusted external content (web snippets, logs, READMEs) is flagged as quarantined
         to prevent prompt injection attacks.
         """
@@ -65,3 +67,16 @@ class InvariantChecker:
                 "Explicit user prompt confirmation required."
             )
         return True
+
+    @staticmethod
+    def check_patch_artifact_precedence(patch_text: str) -> Tuple[bool, str]:
+        """
+        I10 (Patch Artifact Precedence):
+        When an explicit, verified patch artifact exists in context, it takes precedence
+        over re-implementing or guessing code modifications from scratch.
+        """
+        if not patch_text or not patch_text.strip():
+            return False, "Empty patch artifact"
+        if "diff --git" not in patch_text and "@@" not in patch_text:
+            return False, "Invalid patch artifact format: missing git diff/hunk headers"
+        return True, "Valid patch artifact"

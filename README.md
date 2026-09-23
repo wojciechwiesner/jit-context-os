@@ -17,7 +17,7 @@ In complex agentic workflows, injecting large instruction manuals, task history,
 1. **L0 Hot-Path (<3ms):** SQLite WAL in-memory engine storing active hot-facts with Read-Your-Own-Writes (RYOW).
 2. **L1 Warm-Path (<10ms):** Project domain knowledge with Hysteresis Scope Guard to eliminate context oscillations.
 3. **L2 Deep-Path:** On-demand retrieval with a 600ms Circuit Breaker protecting against hanging endpoints.
-4. **Deterministic XML Capsule (`<jit_capsule>`):** Stable prompt prefix ordering ensuring **>85% prompt cache hit rates** on Claude 3.5/3.7, Gemini 3.8 Flash, and GPT-4o.
+4. **Deterministic XML Capsule (`<jit_capsule>`):** Stable prompt prefix ordering ensuring **>85% prompt cache hit rates** on Claude latest, Sonnet latest, Gemini 3.8 Flash, and GPT-4o.
 5. **Epistemic Invariants Engine (I1–I10):** Anti-self-poisoning (assistant outputs carry 0.0 epistemic weight), strict direct user input precedence, and destructive action gating.
 6. **RecentTurnFence Self-Healing:** 1-turn repair loops for coding errors without expanding conversational history.
 
@@ -65,6 +65,25 @@ JIT Context OS can be configured globally or per-agent/per-project via **Setting
 | `recent_turn_fence` | `4` | Number of recent turns preserved to stop history explosion. |
 | `max_l0_facts` | `20` | Maximum dynamic facts held in active L0 hot-path. |
 | `l2_timeout_ms` | `600` | Circuit breaker timeout for external RAG queries. |
+| `jev_enabled` | `true` | Master switch for the JEV Bridge layer. |
+| `jev_distill_enabled` | `true` | Distill finished turns into compact L0 facts. |
+| `jev_distill_max_facts` | `3` | Max distilled facts per turn. |
+| `jev_eviction_budget_pct` | `0.9` | L0 fill ratio above which the eviction advisor fires. |
+| `jev_remote_enabled` | `true` | Remote JEV judge/rerank model via OpenRouter-compatible API. |
+| `jev_remote_model` | `~typesafe/jev-latest` | Remote JEV model id. |
+
+---
+
+## ⚖️ JEV Bridge (Judge / Eviction / Verification)
+
+Since v0.4.0-beta.1, the standalone `jev_bridge` plugin is merged into JIT Context OS as a single integrated plugin:
+
+* **Shadow Judge** (`message_loop_end`): scores capsule facts for helpfulness in shadow mode; promotes to live filtering only after the promotion gate (**>=10 evals, 0 harmful verdicts, >=30% helpful ratio**).
+* **Eviction Advisor**: proposes L0 evictions when the hot-path exceeds the budget, respecting invariant priorities.
+* **JEV Prefetch** (`message_loop_start`): warms the remote judge cache with TTL caching and I6 safe fallback to local heuristics.
+* **Live Status Bar**: a JIT/JEV telemetry bar above the chat input (`/api/plugins/jit_context/jit_status`) showing capsule size, L0 facts, cache hits and issue hints.
+
+All JEV calls fail safe: on any remote error the bridge degrades to local deterministic heuristics and never blocks the main agent loop.
 
 ---
 
