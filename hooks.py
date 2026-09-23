@@ -1,20 +1,24 @@
 """
-Framework lifecycle hooks for JIT Context OS.
+Framework lifecycle hooks for JIT Context OS (with integrated JEV Bridge).
 Executes inside Agent Zero framework runtime.
 """
-
 import os
-import sys
+
 
 def install():
-    """Called automatically by Agent Zero when plugin is installed."""
-    print("[JIT Context OS] Running post-install setup...")
+    """Called automatically on install/update. Idempotent."""
+    print("[JIT Context OS + JEV] post-install setup...")
     plugin_dir = os.path.dirname(os.path.abspath(__file__))
-    data_dir = os.path.join(plugin_dir, "data")
-    os.makedirs(data_dir, exist_ok=True)
+    os.makedirs(os.path.join(plugin_dir, "data"), exist_ok=True)
+    # keep API key if present (never overwrite/remove user data)
     return 0
 
+
+def pre_update():
+    return 0
+
+
 def uninstall():
-    """Called before plugin is deleted from usr/plugins/."""
-    print("[JIT Context OS] Cleaning up runtime caches...")
+    """Stop nothing (no owned processes); caches are inside plugin dir."""
+    print("[JIT Context OS + JEV] cleanup...")
     return 0

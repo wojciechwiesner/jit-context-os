@@ -97,6 +97,60 @@
                         </label>
                     </div>
                 </div>
+
+                <div class="section-title">JEV Bridge (Judge)</div>
+                <div class="section-description">
+                    Async judge layer: shadow verdicts, distill → L1 hot facts, eviction advice. Never on the hot path (I6 silent degradation).
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Enable JEV Judge</div>
+                        <div class="field-description">Runs post-turn shadow judge and distillation.</div>
+                    </div>
+                    <div class="field-control">
+                        <label class="toggle">
+                            <input type="checkbox" x-model="config.jev_enabled" />
+                            <span class="toggler"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Distill → L1 Hot Facts</div>
+                        <div class="field-description">Archive pruned turns into compact hot facts (I3: assistant prose never distilled).</div>
+                    </div>
+                    <div class="field-control">
+                        <label class="toggle">
+                            <input type="checkbox" x-model="config.jev_distill_enabled" />
+                            <span class="toggler"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Max Distilled Facts / Turn</div>
+                        <div class="field-description">Cap for new facts written per message loop end (default 3).</div>
+                    </div>
+                    <div class="field-control">
+                        <input type="number" class="input" x-model.number="config.jev_distill_max_facts" min="1" max="10" />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="field-label">
+                        <div class="field-title">Jev Remote (OpenRouter)</div>
+                        <div class="field-description">Hybrid reranker scorer via OpenRouter decisions API. Key: data/jev_openrouter_key.txt.</div>
+                    </div>
+                    <div class="field-control">
+                        <label class="toggle">
+                            <input type="checkbox" x-model="config.jev_remote_enabled" />
+                            <span class="toggler"></span>
+                        </label>
+                    </div>
+                </div>
             </div>
         </template>
     </div>
