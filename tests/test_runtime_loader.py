@@ -1,7 +1,8 @@
 import os
 
 def test_loader_resolves_dev_runtime():
-    os.environ["JIT_CONTEXT_PLUGIN_DIR"] = "/a0/usr/workdir/a0-jit-context"
+    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    os.environ["JIT_CONTEXT_PLUGIN_DIR"] = repo_root
     from jev_bridge._runtime import load_runtime_getter
     get_runtime = load_runtime_getter()
     assert get_runtime is not None

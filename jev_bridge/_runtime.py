@@ -10,6 +10,7 @@ _MODULE = "usr.plugins.jit_context.helpers.runtime"
 
 def _candidate_roots():
     yield os.environ.get("JIT_CONTEXT_PLUGIN_DIR") or ""
+    yield os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     yield "/a0/usr/plugins/jit_context"
     yield "/a0/usr/workdir/a0-jit-context"
 
