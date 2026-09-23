@@ -3,6 +3,7 @@
 **Epistemic context runtime & 3-tier memory cascade (L0/L1/L2) with deterministic prompt caching for Agent Zero.**
 
 [![Agent Zero](https://img.shields.io/badge/Agent%20Zero-Plugin-blue)](https://github.com/agent0ai/agent-zero)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22649541.svg)](https://doi.org/10.5281/zenodo.22649541)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Token Reduction](https://img.shields.io/badge/Prompt%20Tokens--88.9%25-brightgreen)]()
 [![Code Accuracy](https://img.shields.io/badge/Self--Healing%20Accuracy-%2B20%25-brightgreen)]()
