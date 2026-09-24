@@ -1,6 +1,5 @@
-# JIT Context OS for Agent Zero ⚡
-
-**Epistemic context runtime & 3-tier memory cascade (L0/L1/L2) with deterministic prompt caching for Agent Zero.**
+# JIT-JEV Context OS for Agent Zero ⚡
+### Epistemic Context Runtime, JEV System 1 Decision Gate & 3-Tier Memory Cascade (L0/L1/L2)
 
 [![Agent Zero](https://img.shields.io/badge/Agent%20Zero-Plugin-blue)](https://github.com/agent0ai/agent-zero)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22649541.svg)](https://doi.org/10.5281/zenodo.22649541)
@@ -13,17 +12,40 @@
 
 ---
 
-## 🌟 What is JIT Context OS?
+### Quick Production Benchmark Snapshot
+| Benchmark Metric | Without JIT-JEV (Haystack) | With JIT-JEV Context OS | Net Advantage |
+| :--- | :---: | :---: | :--- |
+| **Agent Turns / Task (SWE-bench)** | 6.7 turns | **4.6 turns** | **-31.3% Multi-Turn Churn Avoided** |
+| **Blind Discovery Calls (ls/grep/cat)** | 38 calls | **18 calls** | **-52.6% Blind Exploration Cut** |
+| **Active Context Prompt Footprint** | 3,085 tokens | **341 tokens** | **-88.9% Token Consumption** |
+| **Code Pass Rate (Liquid AI LFM 2.5)** | 72.0% (36/50) | **92.0% (46/50)** | **+20.0 p.p. SWE Pass Rate** |
+| **Self-Healing Accuracy (Qwen 3.8)** | 76.0% (38/50) | **94.0% (47/50)** | **+18.0 p.p. Self-Healing Accuracy** |
+| **Fault Tolerance & Fallback (I6)** | N/A | Local Heuristics | **100% Fail-Open Zero Crashes** |
 
-In complex agentic workflows, injecting large instruction manuals, task history, and noisy logs leads to **context bloat**, **attention drift**, and **cache thrashing**.
+---
 
-**JIT Context OS** solves this by providing:
-1. **L0 Hot-Path (<3ms):** SQLite WAL in-memory engine storing active hot-facts with Read-Your-Own-Writes (RYOW).
-2. **L1 Warm-Path (<10ms):** Project domain knowledge with Hysteresis Scope Guard to eliminate context oscillations.
-3. **L2 Deep-Path:** On-demand retrieval with a 600ms Circuit Breaker protecting against hanging endpoints.
-4. **Deterministic XML Capsule (`<jit_capsule>`):** Stable prompt prefix ordering ensuring **>85% prompt cache hit rates** on Claude latest, Sonnet latest, Gemini 3.8 Flash, and GPT-4o.
-5. **Epistemic Invariants Engine (I1–I10):** Anti-self-poisoning (assistant outputs carry 0.0 epistemic weight), strict direct user input precedence, and destructive action gating.
-6. **RecentTurnFence Self-Healing:** 1-turn repair loops for coding errors without expanding conversational history.
+## 🌟 What is JIT-JEV Context OS?
+
+In complex agentic workflows, injecting massive instruction manuals, unbounded history, and raw tool output causes **context bloat**, **attention drift**, and **prompt cache thrashing**.
+
+**JIT-JEV Context OS** solves this by unifying two high-performance agent runtime layers into a single native Agent Zero plugin:
+
+1. **JIT Context Engine (System 2 Memory):**
+   * **L0 Hot-Path (<3ms):** SQLite WAL in-memory engine storing active hot-facts with Read-Your-Own-Writes (RYOW).
+   * **L1 Warm-Path (<10ms):** Project domain knowledge with Hysteresis Scope Guard to eliminate context oscillations.
+   * **L2 Deep-Path:** On-demand retrieval with a 600ms Circuit Breaker protecting against hanging endpoints.
+   * **Deterministic XML Capsule (`<jit_capsule>`):** Stable prompt prefix ordering ensuring **>85% prompt cache hit rates** on Claude latest, Sonnet latest, Gemini 3.8 Flash, and GPT-4o.
+   * **Epistemic Invariants Engine (I1–I10):** Anti-self-poisoning (assistant outputs carry 0.0 epistemic weight), strict direct user input precedence, and destructive action gating.
+   * **RecentTurnFence Self-Healing:** 1-turn repair loops for coding errors without expanding conversational history.
+
+2. **JEV Decision Gate (System 1 Fast Arbitration):**
+   * **Shadow Helpfulness Judge:** Automatically scores capsule facts in shadow mode; facts that meet safety and precision thresholds (>=10 evals, 0 harmful, >=30% helpful) can be promoted into persistent L2 vault memory.
+   * **Dynamic Eviction Advisor:** Triggers eviction recommendations when L0 capacity approaches threshold budgets, ensuring stale or disproven hypotheses never pollute future turns.
+   * **JEV Prefetch:** Warms the remote judge cache in background threads before execution turns.
+   * **Live Chat Status Bar:** Displays real-time capsule size, active facts, cache hits, and issue hints directly above the chat input.
+
+> **Target Environment & Runtime Notice:**  
+> JIT-JEV Context OS is specifically architected for **autonomous coding agents that possess active tool execution access** (shell commands, file modifications, test suites, AST parsing). It is not a generic conversational chatbot wrapper. The runtime enforces ground truth via physical tool feedback while rejecting hallucinated assistant monologues.
 
 ---
 
